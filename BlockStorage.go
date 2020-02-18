@@ -1,11 +1,10 @@
 package main
 
 import (
-	"context"
-	"google.golang.org/grpc"
-        "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	pprovisioning "github.com/n0stack/n0stack/n0proto.go/provisioning/v0"
-	pdeployment "github.com/n0stack/n0stack/n0proto.go/deployment/v0"
+	"fmt"
+	"os"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"gopkg.in/yaml.v3"
 )
 
 func resource_n0stack_blockstorage() *schema.Resource {
@@ -17,121 +16,97 @@ func resource_n0stack_blockstorage() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"image_name": {
-				Type:     schema.TypeString,
+				Type:	 schema.TypeString,
 				Optional: true,
 			},
 			"tag": {
-				Type:     schema.TypeString,
+				Type:	 schema.TypeString,
 				Optional: true,
 			},
 			"blockstorage_name": {
-				Type:     schema.TypeString,
+				Type:	 schema.TypeString,
 				Required: true,
 			},
 			"annotations": {
-				Type:     schema.TypeMap,
+				Type:	 schema.TypeMap,
 				Required: true,
 				Elem: schema.TypeString,
 			},
 			"labels": {
-				Type:     schema.TypeMap,
+				Type:	 schema.TypeMap,
 				Optional: true,
 				Elem: schema.TypeString,
 			},
 			"request_bytes": {
-				Type:     schema.TypeInt,
+				Type:	 schema.TypeInt,
 				Required: true,
 			},
 			"limit_bytes": {
-				Type:     schema.TypeInt,
+				Type:	 schema.TypeInt,
 				Required: true,
 			},
 			"source_url": {
-				Type:     schema.TypeString,
+				Type:	 schema.TypeString,
 				Optional: true,
 			},
 		},
 	}
 }
 
-func resource_n0stack_blockstorage_create(d *schema.ResourceData, meta interface{}) error {
-	config := meta.(Config)
-	conn, err := grpc.Dial(config.endpoint, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
 
-	if(d.Get("source_url").(string) != ""){
-		client := pprovisioning.NewBlockStorageServiceClient(conn)
-		request := pprovisioning.FetchBlockStorageRequest{
-			Name: d.Get("blockstorage_name").(string) ,
-			Annotations: interfaceMap2stringMap(d.Get("annotations").(map[string]interface{})),
-			Labels: interfaceMap2stringMap(d.Get("labels").(map[string]interface{})),
-			RequestBytes: uint64(d.Get("request_bytes").(int)) ,
-			LimitBytes: uint64(d.Get("limit_bytes").(int)),
-			SourceUrl: d.Get("source_url").(string),
-		}
-		res, err := client.FetchBlockStorage(context.Background(), &request)
-		if err != nil {
-			return err
-		}
-		d.SetId(res.Name)
-	} else if(d.Get("image_name").(string) != ""){
-		client := pdeployment.NewImageServiceClient(conn)
-		request := pdeployment.GenerateBlockStorageRequest{
-			ImageName: d.Get("image_name").(string) ,
-			BlockStorageName: d.Get("blockstorage_name").(string) ,
-			Annotations: interfaceMap2stringMap(d.Get("annotations").(map[string]interface{})),
-			RequestBytes: uint64(d.Get("request_bytes").(int)) ,
-			LimitBytes: uint64(d.Get("limit_bytes").(int)),
-			Tag: d.Get("tag").(string),
-		}
-		res, err := client.GenerateBlockStorage(context.Background(), &request)
-		if err != nil {
-			return err
-		}
-		d.SetId(res.Name)
-	} else {
-		client := pprovisioning.NewBlockStorageServiceClient(conn)
-		request := pprovisioning.CreateBlockStorageRequest{
-			Name: d.Get("blockstorage_name").(string) ,
-			Annotations: interfaceMap2stringMap(d.Get("annotations").(map[string]interface{})),
-			Labels: interfaceMap2stringMap(d.Get("labels").(map[string]interface{})),
-			RequestBytes: uint64(d.Get("request_bytes").(int)) ,
-			LimitBytes: uint64(d.Get("limit_bytes").(int)),
-		}
-		res, err := client.CreateBlockStorage(context.Background(), &request)
-		if err != nil {
-			return err
-		}
-		d.SetId(res.Name)
+type Task struct {
+	Type        string      `yaml:"type"`
+	Action      string      `yaml:"action"`
+	Args        struct {
+		ImageName           string             `yaml:"image_name"`
+		Tag                 string             `yaml:"tag"`
+		BlockStorageName    string             `yaml:"block_storage_names"`
+		Annotations         map[string]string  `yaml:"annotations"`
+		Labels              map[string]string  `yaml:"labels"`
+		RequestBytes        uint64             `yaml:"request_bytes"`
+		LimitBytes          uint64             `yaml:"limit_bytes"`
+		SourceUrl           string             `yaml:"source_url"`
 	}
+	DependsOn   []string    `yaml:"depends_on"`
+	IgnoreError bool        `yaml:"ignore_error"`
+	// Rollback []*Task `yaml:"rollback"`
+
+	child   []string
+	depends int
+}
+
+func resource_n0stack_blockstorage_create(d *schema.ResourceData, meta interface{}) error {
+	task := Task{}
+
+	task.Type = "Image"
+	task.Action = "GenerateBlockStorage"
+	task.Args.ImageName = d.Get("image_name").(string)
+	task.Args.Tag = d.Get("tag").(string)
+	task.Args.BlockStorageName = d.Get("blockstorage_name").(string)
+	task.Args.Annotations = interfaceMap2stringMap(d.Get("annotations").(map[string]interface{}))
+	task.Args.Labels = interfaceMap2stringMap(d.Get("labels").(map[string]interface{}))
+	task.Args.RequestBytes = uint64(d.Get("request_bytes").(int))
+	task.Args.LimitBytes = uint64(d.Get("limit_bytes").(int))
+	task.Args.SourceUrl = d.Get("source_url").(string)
+
+	yamlString, err := yaml.Marshal(&task)
+	if err != nil {
+		fmt.Printf("error: %v", err)
+	}
+
+	file, err := os.Create("test.yaml")
+	if err != nil {
+		return err;
+	}
+
+	fmt.Fprint(file, string(yamlString))
+
+	d.SetId(d.Get("blockstorage_name").(string))
 
 	return resource_n0stack_blockstorage_read(d, meta)
 }
 
 func resource_n0stack_blockstorage_read(d *schema.ResourceData, meta interface{}) error {
-	config := meta.(Config)
-	conn, err := grpc.Dial(config.endpoint, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client := pprovisioning.NewBlockStorageServiceClient(conn)
-	request := pprovisioning.GetBlockStorageRequest{
-		Name: d.Get("blockstorage_name").(string) ,
-	}
-	res, err := client.GetBlockStorage(context.Background(), &request)
-	if err != nil {
-		return err
-	}
-	d.Set("blockstorage_name", res.Name)
-	d.Set("annotations", res.Annotations)
-	d.Set("labels", res.Labels)
-	d.Set("request_bytes", res.RequestBytes)
-	d.Set("limit_bytes", res.LimitBytes)
 	return nil
 }
 
@@ -140,32 +115,5 @@ func resource_n0stack_blockstorage_update(d *schema.ResourceData, meta interface
 }
 
 func resource_n0stack_blockstorage_delete(d *schema.ResourceData, meta interface{}) error {
-	config := meta.(Config)
-	conn, err := grpc.Dial(config.endpoint, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client := pprovisioning.NewBlockStorageServiceClient(conn)
-	{
-		request := pprovisioning.DeleteBlockStorageRequest{
-			Name: d.Get("blockstorage_name").(string) ,
-		}
-		_, err = client.DeleteBlockStorage(context.Background(), &request)
-		if err != nil {
-			return err
-		}
-	}
-	{
-		request := pprovisioning.PurgeBlockStorageRequest{
-			Name: d.Get("blockstorage_name").(string) ,
-		}
-		_, err = client.PurgeBlockStorage(context.Background(), &request)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }

@@ -13,4 +13,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
 	google.golang.org/genproto v0.0.0-20190927181202-20e1ac93f88c
 	google.golang.org/grpc v1.24.0
+	gopkg.in/yaml.v2 v2.2.3
+	gopkg.in/yaml.v3 v3.0.0-20200121175148-a6ecf24a6d71
 )
