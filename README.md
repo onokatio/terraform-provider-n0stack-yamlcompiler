@@ -7,7 +7,7 @@
 # インストール方法
 
 1. [Github Release](https://github.com/onokatio/terraform-provider-n0stack-yamlcompiler/releases)から実行ファイルをダウンロードし、 `terraform-provider-n0stack-yamlcompiler` という名前へ変更する
-2. `terraform-provider-n0stack-yamlcompiler` がカレントディレクトリにある状態で、terraform initを行う
+2. `terraform-provider-n0stack-yamlcompiler` がカレントディレクトリにある状態で、 `terraform init` を行う
 
 # 使い方
 
