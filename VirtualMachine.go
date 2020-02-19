@@ -1,10 +1,10 @@
 package main
 
 import (
-	"context"
-	"google.golang.org/grpc"
+	"fmt"
+	"os"
         "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	pprovisioning "github.com/n0stack/n0stack/n0proto.go/provisioning/v0"
+	"gopkg.in/yaml.v3"
 )
 
 func resource_n0stack_virtualmachine() *schema.Resource {
@@ -83,42 +83,84 @@ func resource_n0stack_virtualmachine() *schema.Resource {
 	}
 }
 
-func resource_n0stack_virtualmachine_create(d *schema.ResourceData, meta interface{}) error {
-	config := meta.(Config)
-	conn, err := grpc.Dial(config.endpoint, grpc.WithInsecure())
-	if err != nil {
-		return err
+type Nics struct {
+	NetworkName  string `yaml:"network_name"`
+	Ipv4Address string `yaml:"ipv4_address"`
+	Ipv6Address string `yaml:"ipv6_address"`
+}
+
+type VirtualMachineTask struct {
+	Type        string      `yaml:"type"`
+	Action      string      `yaml:"action"`
+	Args        struct {
+		Name           string             `yaml:"name"`
+		Tag                 string             `yaml:"tag"`
+		Annotations         map[string]string  `yaml:"annotations"`
+		Labels              map[string]string  `yaml:"labels"`
+		BlockStorageNames   []string             `yaml:"block_storage_names"`
+		RequestCpuMilliCore uint32             `yaml:"request_cpu_milli_core"`
+		LimitCpuMilliCore   uint32               `yaml:"limit_cpu_milli_core"`
+		RequestMemoryBytes  uint64              `yaml:"request_memory_bytes"`
+		LimitMemoryBytes    uint64                `yaml:"limit_memory_bytes"`
+		SshAuthorizedKeys   []string             `yaml:"ssh_authorized_keys"`
+		Nics                []Nics
 	}
-	defer conn.Close()
+	DependsOn   []string    `yaml:"depends_on"`
+	IgnoreError bool        `yaml:"ignore_error"`
+	// Rollback []*Task `yaml:"rollback"`
 
-	client := pprovisioning.NewVirtualMachineServiceClient(conn)
+	child   []string
+	depends int
+}
 
-	nics := make([]*(pprovisioning.VirtualMachineNIC),0)
+func resource_n0stack_virtualmachine_create(d *schema.ResourceData, meta interface{}) error {
+
+	task := VirtualMachineTask{}
+	task.Type = "VirtualMachine"
+	task.Action = "CreateVirtualMachine"
+	task.Args.Name = d.Get("name").(string)
+	task.Args.Annotations = interfaceMap2stringMap(d.Get("annotations").(map[string]interface{}))
+	task.Args.Labels = interfaceMap2stringMap(d.Get("labels").(map[string]interface{}))
+	task.Args.BlockStorageNames = interfaceList2stringList(d.Get("block_storage_names").([]interface{}))
+	task.Args.RequestCpuMilliCore = uint32(d.Get("request_cpu_milli_core").(int))
+	task.Args.LimitCpuMilliCore = uint32(d.Get("limit_cpu_milli_core").(int))
+	task.Args.RequestMemoryBytes = uint64(d.Get("request_memory_bytes").(int))
+	task.Args.LimitMemoryBytes = uint64(d.Get("limit_memory_bytes").(int))
+	task.Args.SshAuthorizedKeys = interfaceList2stringList(d.Get("ssh_authorized_keys").([]interface{}))
+	nics := make([]Nics,0)
 	for _, value := range (d.Get("nics").([]interface{})) {
-		nic := pprovisioning.VirtualMachineNIC{}
+		nic := Nics{}
 		element := value.(map[string]interface{})
 		nic.NetworkName = element["network_name"].(string)
 		nic.Ipv4Address = element["ipv4_address"].(string)
 		nic.Ipv6Address = element["ipv6_address"].(string)
-		nics = append(nics, &nic)
+		nics = append(nics, nic)
+	}
+	task.Args.Nics = nics
+
+	taskList := make(map[string]VirtualMachineTask)
+	taskList["GenerateVirtualMachine-" + d.Get("name").(string)] = task
+
+	yamlString, err := yaml.Marshal(&taskList)
+	if err != nil {
+		fmt.Printf("error: %v", err)
 	}
 
-	request := pprovisioning.CreateVirtualMachineRequest{
-		Name: d.Get("name").(string),
-		Annotations: interfaceMap2stringMap(d.Get("annotations").(map[string]interface{})),
-		Labels: interfaceMap2stringMap(d.Get("labels").(map[string]interface{})),
-		RequestCpuMilliCore: uint32(d.Get("request_cpu_milli_core").(int)),
-		LimitCpuMilliCore: uint32(d.Get("limit_cpu_milli_core").(int)),
-		RequestMemoryBytes: uint64(d.Get("request_memory_bytes").(int)),
-		LimitMemoryBytes: uint64(d.Get("limit_memory_bytes").(int)),
-		BlockStorageNames: interfaceList2stringList(d.Get("block_storage_names").([]interface{})),
-		SshAuthorizedKeys: interfaceList2stringList(d.Get("ssh_authorized_keys").([]interface{})),
-		Nics: nics,
-	}
-	_, err = client.CreateVirtualMachine(context.Background(), &request)
+	err = os.MkdirAll("n0cli-yaml/Generate", 0755)
 	if err != nil {
 		return err
 	}
+	err = os.MkdirAll("n0cli-yaml/Delete", 0755)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create("n0cli-yaml/Generate/VirtualMachine-" + d.Get("name").(string) + ".yaml")
+	if err != nil {
+		return err;
+	}
+
+	fmt.Fprint(file, string(yamlString))
 
 	d.SetId(d.Get("name").(string))
 
@@ -126,24 +168,6 @@ func resource_n0stack_virtualmachine_create(d *schema.ResourceData, meta interfa
 }
 
 func resource_n0stack_virtualmachine_read(d *schema.ResourceData, meta interface{}) error {
-	config := meta.(Config)
-	conn, err := grpc.Dial(config.endpoint, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client := pprovisioning.NewVirtualMachineServiceClient(conn)
-
-	request := pprovisioning.GetVirtualMachineRequest{
-		Name: d.Get("name").(string) ,
-	}
-	res, err := client.GetVirtualMachine(context.Background(), &request)
-	if err != nil {
-		return err
-	}
-
-	d.Set("name",res.Name)
 	return nil
 }
 
@@ -152,22 +176,5 @@ func resource_n0stack_virtualmachine_update(d *schema.ResourceData, meta interfa
 }
 
 func resource_n0stack_virtualmachine_delete(d *schema.ResourceData, meta interface{}) error {
-	config := meta.(Config)
-	conn, err := grpc.Dial(config.endpoint, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client := pprovisioning.NewVirtualMachineServiceClient(conn)
-
-	request := pprovisioning.DeleteVirtualMachineRequest{
-		Name: d.Get("name").(string) ,
-	}
-	_, err = client.DeleteVirtualMachine(context.Background(), &request)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
