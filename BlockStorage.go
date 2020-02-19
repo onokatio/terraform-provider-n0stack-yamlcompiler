@@ -79,7 +79,7 @@ type BlockStorageTask struct {
 func resource_n0stack_blockstorage_create(d *schema.ResourceData, meta interface{}) error {
 
 	task := BlockStorageTask{}
-	task.Type = "Image"
+	task.Type = "BlockStorage"
 	task.Action = "GenerateBlockStorage"
 	task.Args.ImageName = d.Get("image_name").(string)
 	task.Args.Tag = d.Get("tag").(string)
