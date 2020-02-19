@@ -11,10 +11,12 @@ terraformのHCLで使用できる、ループや変数展開に対応してい�
 
 1. [Github Release](https://github.com/onokatio/terraform-provider-n0stack-yamlcompiler/releases)から実行ファイルをダウンロードし、 `terraform-provider-n0stack-yamlcompiler` という名前へ変更する
 2. `terraform-provider-n0stack-yamlcompiler` がカレントディレクトリにある状態で、 `terraform init` を行う
+3. それ以降、そのディレクトリ以下で`terraform apply`が使えるようになります。
 
 # 使い方
 
-`terraform apply` を実行すると、
+1. `terraform init`を行ったディレクトリへ、変換したいtfファイルを突っ込みます。
+2. そこで`terraform apply` を実行すると、
 
 - `n0cli-yaml/Delete`
 - `n0cli-yaml/Generate`
