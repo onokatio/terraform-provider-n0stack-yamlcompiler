@@ -53,7 +53,7 @@ type ImageRegistryTask struct {
 	Action      string      `yaml:"action"`
 	Args        struct {
 		ImageName           string             `yaml:"image_name"`
-		Tags                 []string           `yaml:"tags"`
+		Tags                []string           `yaml:"tags"`
 		BlockStorageName    string             `yaml:"blockstorage_name"`
 	}
 	DependsOn   []string    `yaml:"depends_on"`
