@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	//"github.com/n0stack/n0stack/n0proto.go/pkg/dag"
 	"gopkg.in/yaml.v3"
 )
 
@@ -76,8 +77,8 @@ type Task struct {
 }
 
 func resource_n0stack_blockstorage_create(d *schema.ResourceData, meta interface{}) error {
-	task := Task{}
 
+	task := Task{}
 	task.Type = "Image"
 	task.Action = "GenerateBlockStorage"
 	task.Args.ImageName = d.Get("image_name").(string)
@@ -89,12 +90,24 @@ func resource_n0stack_blockstorage_create(d *schema.ResourceData, meta interface
 	task.Args.LimitBytes = uint64(d.Get("limit_bytes").(int))
 	task.Args.SourceUrl = d.Get("source_url").(string)
 
-	yamlString, err := yaml.Marshal(&task)
+	taskList := make(map[string]Task)
+	taskList["GenerateBlockStorage-" + d.Get("blockstorage_name").(string)] = task
+
+	yamlString, err := yaml.Marshal(&taskList)
 	if err != nil {
 		fmt.Printf("error: %v", err)
 	}
 
-	file, err := os.Create("test.yaml")
+	err = os.MkdirAll("n0cli-yaml/Generate", 0755)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll("n0cli-yaml/Delete", 0755)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create("n0cli-yaml/Generate/BlockStorage-" + d.Get("blockstorage_name").(string) + ".yaml")
 	if err != nil {
 		return err;
 	}
