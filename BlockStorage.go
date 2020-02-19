@@ -55,7 +55,7 @@ func resource_n0stack_blockstorage() *schema.Resource {
 }
 
 
-type Task struct {
+type BlockStorageTask struct {
 	Type        string      `yaml:"type"`
 	Action      string      `yaml:"action"`
 	Args        struct {
@@ -78,7 +78,7 @@ type Task struct {
 
 func resource_n0stack_blockstorage_create(d *schema.ResourceData, meta interface{}) error {
 
-	task := Task{}
+	task := BlockStorageTask{}
 	task.Type = "Image"
 	task.Action = "GenerateBlockStorage"
 	task.Args.ImageName = d.Get("image_name").(string)
@@ -90,7 +90,7 @@ func resource_n0stack_blockstorage_create(d *schema.ResourceData, meta interface
 	task.Args.LimitBytes = uint64(d.Get("limit_bytes").(int))
 	task.Args.SourceUrl = d.Get("source_url").(string)
 
-	taskList := make(map[string]Task)
+	taskList := make(map[string]BlockStorageTask)
 	taskList["GenerateBlockStorage-" + d.Get("blockstorage_name").(string)] = task
 
 	yamlString, err := yaml.Marshal(&taskList)
