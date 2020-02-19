@@ -61,6 +61,20 @@ type NetworkTask struct {
 	depends int
 }
 
+type NetworkDeleteTask struct {
+	Type        string      `yaml:"type"`
+	Action      string      `yaml:"action"`
+	Args        struct {
+		Name           string             `yaml:"name"`
+	}
+	DependsOn   []string    `yaml:"depends_on"`
+	IgnoreError bool        `yaml:"ignore_error"`
+	// Rollback []*Task `yaml:"rollback"`
+
+	child   []string
+	depends int
+}
+
 func resource_n0stack_network_create(d *schema.ResourceData, meta interface{}) error {
 	task := NetworkTask{}
 	task.Type = "Network"
@@ -94,6 +108,27 @@ func resource_n0stack_network_create(d *schema.ResourceData, meta interface{}) e
 	}
 
 	fmt.Fprint(file, string(yamlString))
+
+	task_delete := NetworkDeleteTask{}
+	task_delete.Type = "Network"
+	task_delete.Action = "DeleteNetwork"
+	task_delete.Args.Name = d.Get("name").(string)
+
+	taskList_delete := make(map[string]NetworkDeleteTask)
+	taskList_delete["DeleteNetwork-" + d.Get("name").(string)] = task_delete
+
+	yamlString, err = yaml.Marshal(&taskList_delete)
+	if err != nil {
+		fmt.Printf("error: %v", err)
+	}
+
+	file, err = os.Create("n0cli-yaml/Delete/Network-" + d.Get("name").(string) + ".yaml")
+	if err != nil {
+		return err;
+	}
+
+	fmt.Fprint(file, string(yamlString))
+
 	d.SetId(d.Get("name").(string))
 
 	return resource_n0stack_network_read(d, meta)
