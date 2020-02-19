@@ -76,10 +76,24 @@ type BlockStorageTask struct {
 	depends int
 }
 
+type BlockStorageDeleteTask struct {
+	Type        string      `yaml:"type"`
+	Action      string      `yaml:"action"`
+	Args        struct {
+		Name           string             `yaml:"name"`
+	}
+	DependsOn   []string    `yaml:"depends_on"`
+	IgnoreError bool        `yaml:"ignore_error"`
+	// Rollback []*Task `yaml:"rollback"`
+
+	child   []string
+	depends int
+}
+
 func resource_n0stack_blockstorage_create(d *schema.ResourceData, meta interface{}) error {
 
 	task := BlockStorageTask{}
-	task.Type = "BlockStorage"
+	task.Type = "Image"
 	task.Action = "GenerateBlockStorage"
 	task.Args.ImageName = d.Get("image_name").(string)
 	task.Args.Tag = d.Get("tag").(string)
@@ -108,6 +122,26 @@ func resource_n0stack_blockstorage_create(d *schema.ResourceData, meta interface
 	}
 
 	file, err := os.Create("n0cli-yaml/Generate/BlockStorage-" + d.Get("blockstorage_name").(string) + ".yaml")
+	if err != nil {
+		return err;
+	}
+
+	fmt.Fprint(file, string(yamlString))
+
+	task_delete := BlockStorageDeleteTask{}
+	task_delete.Type = "BlockStorage"
+	task_delete.Action = "DeleteBlockStorage"
+	task_delete.Args.Name = d.Get("blockstorage_name").(string)
+
+	taskList_delete := make(map[string]BlockStorageDeleteTask)
+	taskList_delete["DeleteBlockStorage-" + d.Get("blockstorage_name").(string)] = task_delete
+
+	yamlString, err = yaml.Marshal(&taskList_delete)
+	if err != nil {
+		fmt.Printf("error: %v", err)
+	}
+
+	file, err = os.Create("n0cli-yaml/Delete/BlockStorage-" + d.Get("blockstorage_name").(string) + ".yaml")
 	if err != nil {
 		return err;
 	}
