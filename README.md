@@ -2,7 +2,10 @@
 
 ## これはなに
 
-[terraform-provier-n0stack](https://github.com/onokatio/terraform-provider-n0stack)で作成したtfファイルを、n0cli doのyaml形式へ変換するツールです。
+[terraform-provier-n0stack](https://github.com/onokatio/terraform-provider-n0stack)で作成したtfファイルを、n0cli doのyaml形式へ変換するツールです。  
+terraformのHCLで使用できる、ループや変数展開に対応しているため、複雑なyamlを生成することができます。
+
+100%の互換性はないので、特に問題ない場合はterraformをそのまま使ったほうが楽です。どうしてもterraformからyamlを生成したくなったときのみ利用してください。
 
 # インストール方法
 
