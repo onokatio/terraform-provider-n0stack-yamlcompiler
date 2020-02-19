@@ -61,7 +61,7 @@ type BlockStorageTask struct {
 	Args        struct {
 		ImageName           string             `yaml:"image_name"`
 		Tag                 string             `yaml:"tag"`
-		BlockStorageName    string             `yaml:"block_storage_names"`
+		BlockStorageName    string             `yaml:"block_storage_name"`
 		Annotations         map[string]string  `yaml:"annotations"`
 		Labels              map[string]string  `yaml:"labels"`
 		RequestBytes        uint64             `yaml:"request_bytes"`
