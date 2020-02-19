@@ -67,13 +67,22 @@ type ImageRegistryTask struct {
 func resource_n0stack_image_create(d *schema.ResourceData, meta interface{}) error {
 	task := ImageTask{}
 	task.Type = "Image"
-	task.Action = "GenerateBlockStorage"
+	task.Action = "ApplyImage"
 	task.Args.Name = d.Get("image_name").(string)
 
 	taskList := make(map[string]ImageTask)
 	taskList["ApplyImage-" + d.Get("image_name").(string)] = task
 
 	yamlString, err := yaml.Marshal(&taskList)
+	if err != nil {
+		fmt.Printf("error: %v", err)
+	}
+
+	task.Action = "DeleteImage"
+	taskList_delete := make(map[string]ImageTask)
+	taskList_delete["DeleteImage-" + d.Get("image_name").(string)] = task
+
+	yamlString_delete, err := yaml.Marshal(&taskList_delete)
 	if err != nil {
 		fmt.Printf("error: %v", err)
 	}
@@ -106,12 +115,19 @@ func resource_n0stack_image_create(d *schema.ResourceData, meta interface{}) err
 	if err != nil {
 		return err;
 	}
+
+	file_delete, err := os.Create("n0cli-yaml/Delete/DeleteImage-" + d.Get("image_name").(string) + ".yaml")
+	if err != nil {
+		return err;
+	}
+
 	file_registry, err := os.Create("n0cli-yaml/Generate/RegisterBlockStorage-" + d.Get("image_name").(string) + "to" + d.Get("blockstorage_name").(string) + ".yaml")
 	if err != nil {
 		return err;
 	}
 
 	fmt.Fprint(file, string(yamlString))
+	fmt.Fprint(file_delete, string(yamlString_delete))
 	fmt.Fprint(file_registry, string(yamlString_registry))
 
 	d.SetId(d.Get("image_name").(string))
