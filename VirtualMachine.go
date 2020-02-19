@@ -113,6 +113,20 @@ type VirtualMachineTask struct {
 	depends int
 }
 
+type VirtualMachineDeleteTask struct {
+	Type        string      `yaml:"type"`
+	Action      string      `yaml:"action"`
+	Args        struct {
+		Name           string             `yaml:"name"`
+	}
+	DependsOn   []string    `yaml:"depends_on"`
+	IgnoreError bool        `yaml:"ignore_error"`
+	// Rollback []*Task `yaml:"rollback"`
+
+	child   []string
+	depends int
+}
+
 func resource_n0stack_virtualmachine_create(d *schema.ResourceData, meta interface{}) error {
 
 	task := VirtualMachineTask{}
@@ -156,6 +170,26 @@ func resource_n0stack_virtualmachine_create(d *schema.ResourceData, meta interfa
 	}
 
 	file, err := os.Create("n0cli-yaml/Generate/VirtualMachine-" + d.Get("name").(string) + ".yaml")
+	if err != nil {
+		return err;
+	}
+
+	fmt.Fprint(file, string(yamlString))
+
+	task_delete := VirtualMachineDeleteTask{}
+	task_delete.Type = "VirtualMachine"
+	task_delete.Action = "DeleteVirtualMachine"
+	task_delete.Args.Name = d.Get("name").(string)
+
+	taskList_delete := make(map[string]VirtualMachineDeleteTask)
+	taskList_delete["DeleteVirtualMachine-" + d.Get("name").(string)] = task_delete
+
+	yamlString, err = yaml.Marshal(&taskList_delete)
+	if err != nil {
+		fmt.Printf("error: %v", err)
+	}
+
+	file, err = os.Create("n0cli-yaml/Delete/VirtualMachine-" + d.Get("name").(string) + ".yaml")
 	if err != nil {
 		return err;
 	}
