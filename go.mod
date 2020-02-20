@@ -1,4 +1,4 @@
-module github.com/onokatio/terraform-provider-n0stack-yamlcompiler
+module github.com/onokatio/terraform-provider-n0stack
 
 go 1.13
 

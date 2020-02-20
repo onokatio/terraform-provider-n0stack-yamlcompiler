@@ -149,8 +149,13 @@ func resource_n0stack_virtualmachine_create(d *schema.ResourceData, meta interfa
 		nic.Ipv4Address = element["ipv4_address"].(string)
 		nic.Ipv6Address = element["ipv6_address"].(string)
 		nics = append(nics, nic)
+		task.DependsOn = append(task.DependsOn, "ApplyNetwork-" + element["network_name"].(string))
 	}
 	task.Args.Nics = nics
+
+	for _, value := range (interfaceList2stringList(d.Get("block_storage_names").([]interface{}))) {
+		task.DependsOn = append(task.DependsOn, "GenerateBlockStorage-" + value)
+	}
 
 	taskList := make(map[string]VirtualMachineTask)
 	taskList["GenerateVirtualMachine-" + d.Get("name").(string)] = task
